@@ -70,7 +70,7 @@ namespace FModel.Utils
                     }
                     else
                      {
-                        DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP Game Detection]",        // Some games are even EFS encrypted, so they need to be dumped with UWPDumper beforehand.
+                        DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP]",        // Some games are even EFS encrypted, so they need to be dumped with UWPDumper beforehand.
                         $"UWP Game {uwpfamilyname} found at {pkg.EffectiveLocation.Name}");                   // Thankfully, games which have mod support are installed into a "MutableWindowsApps" folder which the normal user has access to.
                         return pkg.EffectivePath;
                      }
@@ -78,16 +78,14 @@ namespace FModel.Utils
             } 
             catch (UnauthorizedAccessException)
             {
-                DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[[UWP Game Detection]",
+                DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP]",
                     $"The WindowsApps folder can't be accessed without permission changes to the folder. Make sure all WindowsApps folders have the correct read/write permissions set!");
             }
             catch
             {
-                DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP Game Detection]",
-                    $"Error: An unknown error occured.");
+                DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP]", $"Error: An unknown error occured.");
             }
-            DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP Game Detection]",
-            $"The UWP package {uwpfamilyname} was not found on this system.");
+            DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP]", $"The UWP package {uwpfamilyname} was not found on this system.");
             return string.Empty;
         }
             
