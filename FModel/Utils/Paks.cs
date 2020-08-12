@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System;
 using Windows.Management.Deployment;
-using System.Management.Automation;
-using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 
 namespace FModel.Utils
@@ -56,24 +54,9 @@ namespace FModel.Utils
             {
                 foreach (var pkg in new PackageManager().FindPackagesForUser(string.Empty, uwpfamilyname))  // Only (that I know of) way to reliably get the InstallLocation of an UWP app without elevated privileges 
                 {
-                    if (pkg.EffectivePath.Contains("Mutable"))
-                     {
-                        PowerShell ps = PowerShell.Create();
-                        ps.AddScript($"(Get-Item -Path '{pkg.EffectivePath}').Target");
-                        Collection<PSObject> path = ps.Invoke();
-                        foreach (PSObject p in path)
-                        {
-                            DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[[UWP Game Detection]",
-                                $"Modifiable package {uwpfamilyname} detected at {p.BaseObject}!");
-                            return p.BaseObject.ToString();
-                        }
-                    }
-                    else
-                     {
                         DebugHelper.WriteLine("{0} {1} {2}", "[FModel]", "[UWP Game Detection]",        // Some games are even EFS encrypted, so they need to be dumped with UWPDumper beforehand.
-                        $"UWP Game {uwpfamilyname} found at {pkg.EffectiveLocation.Name}");                   // Thankfully, games which have mod support are installed into a "MutableWindowsApps" folder which the normal user has access to.
+                        $"UWP Game {uwpfamilyname} found at {pkg.EffectiveLocation}");                   // Thankfully, games which have mod support are installed into a "MutableWindowsApps" folder which the normal user has access to.
                         return pkg.EffectivePath;
-                     }
                 }
             } 
             catch (UnauthorizedAccessException)
