@@ -135,9 +135,11 @@ namespace FModel.Utils
             {
                 (_,string _,string sod2PakFilesPath) = GetUEGameFilesPath("<Unknown Epic Games Name>");
                 if (!string.IsNullOrEmpty(sod2PakFilesPath))
-                return $"{sod2PakFilesPath}\\StateOfDecay2\\Content\\Paks";
+                {
+                    return $"{sod2PakFilesPath}\\StateOfDecay2\\Content\\Paks";
+                }
             }
-           return string.Empty;
+            return string.Empty;
         }
 
         public static string GetBorderlands3PakFilesPath()
