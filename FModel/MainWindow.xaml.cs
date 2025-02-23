@@ -64,6 +64,7 @@ public partial class MainWindow
         await ApplicationViewModel.InitOodle();
         await ApplicationViewModel.InitZlib();
         await _applicationView.CUE4Parse.Initialize();
+        await _applicationView.CUE4Parse.InitMappings();
         await _applicationView.AesManager.InitAes();
         await _applicationView.UpdateProvider(true);
 #if !DEBUG
@@ -72,7 +73,6 @@ public partial class MainWindow
         await Task.WhenAll(
             _applicationView.CUE4Parse.VerifyConsoleVariables(),
             _applicationView.CUE4Parse.VerifyOnDemandArchives(),
-            _applicationView.CUE4Parse.InitMappings(),
             ApplicationViewModel.InitVgmStream(),
             ApplicationViewModel.InitImGuiSettings(newOrUpdated),
             Task.Run(() =>
