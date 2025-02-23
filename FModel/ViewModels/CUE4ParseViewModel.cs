@@ -467,7 +467,7 @@ public class CUE4ParseViewModel : ViewModel
             if (hotfixes == null) return;
 
             HotfixedResourcesDone = true;
-            foreach (var entries in hotfixes)
+            /*foreach (var entries in hotfixes)
             {
                 if (!Provider.LocalizedResources.ContainsKey(entries.Key))
                     Provider.LocalizedResources[entries.Key] = new Dictionary<string, string>();
@@ -477,7 +477,7 @@ public class CUE4ParseViewModel : ViewModel
                     Provider.LocalizedResources[entries.Key][keyValue.Key] = keyValue.Value;
                     LocalizedResourcesCount++;
                 }
-            }
+            }*/
         });
     }
 
