@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using AdonisUI.Controls;
 using System.Collections.Generic;
 using System.Threading;
@@ -136,6 +136,8 @@ public class FModelApiEndpoint : AbstractApiProvider
 
     private void CheckForUpdateEvent(UpdateInfoEventArgs args)
     {
+        return;
+
         if (args is { CurrentVersion: { } })
         {
             UserSettings.Default.LastUpdateCheck = DateTime.Now;
