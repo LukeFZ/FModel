@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using CUE4Parse_Conversion.Textures.BC;
 using CUE4Parse.Compression;
 using CUE4Parse.Encryption.Aes;
 using CUE4Parse.UE4.Objects.Core.Misc;
@@ -257,5 +258,20 @@ public class ApplicationViewModel : ViewModel
         }
 
         ZlibHelper.Initialize(zlibPath);
+    }
+
+    public static async Task InitDetex()
+    {
+        var detexPath = Path.Combine(UserSettings.Default.OutputDirectory, ".data", DetexHelper.DLL_NAME);
+        if (File.Exists(DetexHelper.DLL_NAME))
+        {
+            File.Move(DetexHelper.DLL_NAME, detexPath, true);
+        }
+        else if (!File.Exists(detexPath))
+        {
+            await DetexHelper.LoadDllAsync(detexPath);
+        }
+
+        DetexHelper.Initialize(detexPath);
     }
 }

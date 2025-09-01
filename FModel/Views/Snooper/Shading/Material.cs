@@ -130,7 +130,8 @@ public class Material : IDisposable
                         "EmissiveUVs_RG_UpperLeftCorner_BA_LowerRightCorner",
                         "Emissive Texture UVs RG_TopLeft BA_BottomRight",
                         "Emissive 2 UV Positioning (RG)UpperLeft (BA)LowerRight",
-                        "EmissiveUVPositioning (RG)UpperLeft (BA)LowerRight"))
+                        "EmissiveUVPositioning (RG)UpperLeft (BA)LowerRight",
+                        "Emissive_CH", "EmissiveColor4LM", "Emissive Sphere Center"))
                     EmissiveRegion = new Vector4(EmissiveUVs.R, EmissiveUVs.G, EmissiveUVs.B, EmissiveUVs.A);
 
                 if ((Parameters.TryGetSwitch(out var swizzleRoughnessToGreen, "SwizzleRoughnessToGreen") && swizzleRoughnessToGreen) ||
@@ -343,7 +344,7 @@ public class Material : IDisposable
         var texture = GetSelectedTexture() ?? icons["noimage"];
         ImGui.Image(texture.GetPointer(),
             new Vector2(ImGui.GetContentRegionAvail().X - ImGui.GetScrollX()),
-            Vector2.Zero, Vector2.One, Vector4.One, new Vector4(1.0f, 1.0f, 1.0f, 0.25f));
+            Vector2.Zero, Vector2.One);
         return ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left);
     }
 

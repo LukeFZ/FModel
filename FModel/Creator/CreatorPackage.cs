@@ -50,6 +50,7 @@ public class CreatorPackage : IDisposable
             case "AthenaPickaxeItemDefinition":
             case "AthenaGadgetItemDefinition":
             case "AthenaGliderItemDefinition":
+            case "AthenaHatItemDefinition":
             case "AthenaSprayItemDefinition":
             case "AthenaDanceItemDefinition":
             case "AthenaEmojiItemDefinition":
@@ -91,6 +92,7 @@ public class CreatorPackage : IDisposable
             case "FortBackpackItemDefinition":
             case "FortEventQuestMapDataAsset":
             case "FortBuildingItemDefinition":
+            case "FortItemCacheItemDefinition":
             case "FortWeaponModItemDefinition":
             case "FortCodeTokenItemDefinition":
             case "FortSchematicItemDefinition":
@@ -103,6 +105,7 @@ public class CreatorPackage : IDisposable
             case "FortConsumableItemDefinition":
             case "StWFortAccoladeItemDefinition":
             case "FortAccountBuffItemDefinition":
+            case "FortFOBCoreDecoItemDefinition":
             case "FortPlayerPerksItemDefinition":
             case "FortPlaysetPropItemDefinition":
             case "FortPrerollDataItemDefinition":
@@ -112,6 +115,7 @@ public class CreatorPackage : IDisposable
             case "FortPlayerAugmentItemDefinition":
             case "FortSmartBuildingItemDefinition":
             case "FortGiftBoxUnlockItemDefinition":
+            case "FortCreativeGadgetItemDefinition":
             case "FortWeaponModItemDefinitionOptic":
             case "RadioContentSourceItemDefinition":
             case "FortPlaysetGrenadeItemDefinition":
@@ -198,6 +202,7 @@ public class CreatorPackage : IDisposable
                 creator = new Bases.FN.BaseQuest(_object.Value, _style);
                 return true;
             case "FortCompendiumItemDefinition":
+            case "FortCompendiumBundleDefinition":
             case "FortChallengeBundleItemDefinition":
                 creator = new BaseBundle(_object.Value, _style);
                 return true;

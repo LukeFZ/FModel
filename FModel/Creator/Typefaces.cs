@@ -105,7 +105,7 @@ public class Typefaces
                                       _ => _BURBANK_SMALL_BOLD
                                   } + _EXT, true);
 
-                BundleNumber = OnTheFly(_FORTNITE_BASE_PATH + _BURBANK_BIG_CONDENSED_BLACK + _EXT);
+                BundleNumber = OnTheFly(_FORTNITE_BASE_PATH + _BURBANK_SMALL_BOLD + _EXT);
 
                 Bundle = OnTheFly(_FORTNITE_BASE_PATH +
                                   language switch
@@ -116,7 +116,7 @@ public class Typefaces
                                       ELanguage.Arabic => _NOTO_SANS_ARABIC_BLACK,
                                       ELanguage.TraditionalChinese => _NOTO_SANS_TC_BLACK,
                                       ELanguage.Chinese => _NOTO_SANS_SC_BLACK,
-                                      _ => string.Empty
+                                      _ => _BURBANK_SMALL_BOLD
                                   } + _EXT, true) ?? BundleNumber;
 
                 TandemDisplayName = OnTheFly(_FORTNITE_BASE_PATH +
@@ -193,7 +193,7 @@ public class Typefaces
     public SKTypeface OnTheFly(string path, bool fallback = false)
     {
         if (!_viewModel.Provider.TrySaveAsset(path, out var data)) return fallback ? null : Default;
-        var m = new MemoryStream(data) { Position = 0 };
+        var m = new MemoryStream(data) { Position = _viewModel.Provider.Versions.Game >= EGame.GAME_UE5_6 ? 4 : 0 };
         return SKTypeface.FromStream(m);
     }
 }

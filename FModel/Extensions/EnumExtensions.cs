@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using CUE4Parse.UE4.Versions;
 
 namespace FModel.Extensions;
 
@@ -18,7 +19,8 @@ public static class EnumExtensions
 
         var suffix = $"{value:D}";
         var current = Convert.ToInt32(suffix);
-        var target = current & ~0xF;
+        var mask = value.GetType() == typeof(EGame) ? ~0xFFFF : ~0xF;
+        var target = current & mask;
         if (current != target)
         {
             var values = Enum.GetValues(value.GetType());

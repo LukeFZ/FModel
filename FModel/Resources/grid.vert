@@ -32,5 +32,5 @@ void main()
     outVar.view = view;
     outVar.nearPoint = UnprojectPoint(vPos.xy, -1.0).xyz;
     outVar.farPoint  = UnprojectPoint(vPos.xy, 1.0).xyz;
-    gl_Position = vec4(vPos, 1.0f);
+    gl_Position = vec4(vPos, 1.0);
 }

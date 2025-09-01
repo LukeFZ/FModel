@@ -6,6 +6,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace FModel.Views.Resources.Controls;
 
@@ -54,7 +55,7 @@ public class FLogger : ITextFormatter
             }
 
             job();
-        });
+        }, DispatcherPriority.Background);
     }
 
     public static void Text(string message, string color, bool newLine = false)

@@ -1,4 +1,4 @@
-﻿using CSCore;
+using CSCore;
 using CSCore.DSP;
 using CSCore.SoundOut;
 using CSCore.Streams;
@@ -294,6 +294,8 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
             {
                 Save(a, true);
             }
+
+            FLogger.Append(ELog.Information, () => FLogger.Text($"Successfully saved {_audioFiles.Count} audio files", Constants.WHITE, true));
         });
     }
 
@@ -329,16 +331,22 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
         if (File.Exists(path))
         {
             Log.Information("{FileName} successfully saved", fileToSave.FileName);
-            FLogger.Append(ELog.Information, () =>
+            if (!auto)
             {
-                FLogger.Text("Successfully saved ", Constants.WHITE);
-                FLogger.Link(fileToSave.FileName, path, true);
-            });
+                FLogger.Append(ELog.Information, () =>
+                {
+                    FLogger.Text("Successfully saved ", Constants.WHITE);
+                    FLogger.Link(fileToSave.FileName, path, true);
+                });
+            }
         }
         else
         {
             Log.Error("{FileName} could not be saved", fileToSave.FileName);
-            FLogger.Append(ELog.Error, () => FLogger.Text($"Could not save '{fileToSave.FileName}'", Constants.WHITE, true));
+            if (!auto)
+            {
+                FLogger.Append(ELog.Error, () => FLogger.Text($"Could not save '{fileToSave.FileName}'", Constants.WHITE, true));
+            }
         }
     }
 
@@ -550,6 +558,7 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
         switch (SelectedAudioFile.Extension)
         {
             case "adpcm":
+            case "xvag":
             case "opus":
             case "wem":
             case "at9":
@@ -564,9 +573,10 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
 
                 return false;
             }
+            case "rada":
             case "binka":
             {
-                if (TryDecode(out var rawFilePath))
+                if (TryDecode(SelectedAudioFile.Extension, out var rawFilePath))
                 {
                     var newAudio = new AudioFile(SelectedAudioFile.Id, new FileInfo(rawFilePath));
                     Replace(newAudio);
@@ -608,11 +618,11 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
         return vgmProcess?.ExitCode == 0 && File.Exists(wavFilePath);
     }
 
-    private bool TryDecode(out string rawFilePath)
+    private bool TryDecode(string extension, out string rawFilePath)
     {
         rawFilePath = string.Empty;
-        var binkadecPath = Path.Combine(UserSettings.Default.OutputDirectory, ".data", "binkadec.exe");
-        if (!File.Exists(binkadecPath))
+        var decoderPath = Path.Combine(UserSettings.Default.OutputDirectory, ".data", $"{extension}dec.exe");
+        if (!File.Exists(decoderPath))
         {
             return false;
         }
@@ -621,16 +631,16 @@ public class AudioPlayerViewModel : ViewModel, ISource, IDisposable
         File.WriteAllBytes(SelectedAudioFile.FilePath, SelectedAudioFile.Data);
 
         rawFilePath = Path.ChangeExtension(SelectedAudioFile.FilePath, ".wav");
-        var binkadecProcess = Process.Start(new ProcessStartInfo
+        var decoderProcess = Process.Start(new ProcessStartInfo
         {
-            FileName = binkadecPath,
+            FileName = decoderPath,
             Arguments = $"-i \"{SelectedAudioFile.FilePath}\" -o \"{rawFilePath}\"",
             UseShellExecute = false,
             CreateNoWindow = true
         });
-        binkadecProcess?.WaitForExit(5000);
+        decoderProcess?.WaitForExit(5000);
 
         File.Delete(SelectedAudioFile.FilePath);
-        return binkadecProcess?.ExitCode == 0 && File.Exists(rawFilePath);
+        return decoderProcess?.ExitCode == 0 && File.Exists(rawFilePath);
     }
 }

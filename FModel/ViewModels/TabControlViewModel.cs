@@ -22,10 +22,18 @@ namespace FModel.ViewModels;
 
 public class TabImage : ViewModel
 {
-    public string ExportName { get; }
+    public string ExportName { get; set; }
+
     public byte[] ImageBuffer { get; set; }
 
     public TabImage(string name, bool rnn, SKBitmap img)
+    {
+        ExportName = name;
+        RenderNearestNeighbor = rnn;
+        SetImage(img);
+    }
+
+    public TabImage(string name, bool rnn, CTexture img)
     {
         ExportName = name;
         RenderNearestNeighbor = rnn;
@@ -71,11 +79,42 @@ public class TabImage : ViewModel
         }
 
         _bmp = bitmap;
-        using var data = _bmp.Encode(NoAlpha ? ETextureFormat.Jpeg : UserSettings.Default.TextureExportFormat, 100);
+        ExportName += "." + (NoAlpha ? "jpg" : "png");
+        using var data = _bmp.Encode(NoAlpha ? SKEncodedImageFormat.Jpeg : SKEncodedImageFormat.Png, 100);
         using var stream = new MemoryStream(ImageBuffer = data.ToArray(), false);
-        if (UserSettings.Default.TextureExportFormat == ETextureFormat.Tga)
-            return;
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        Image = image;
+    }
 
+    private void SetImage(CTexture bitmap)
+    {
+        if (bitmap is null)
+        {
+            ImageBuffer = null;
+            Image = null;
+            return;
+        }
+
+        _bmp = bitmap.ToSkBitmap();
+        byte[] imageData = _bmp.Encode(NoAlpha ? SKEncodedImageFormat.Jpeg : SKEncodedImageFormat.Png, 100).ToArray();
+
+        if (PixelFormatUtils.IsHDR(bitmap.PixelFormat) || (UserSettings.Default.TextureExportFormat != ETextureFormat.Jpeg && UserSettings.Default.TextureExportFormat != ETextureFormat.Png))
+        {
+            ImageBuffer = bitmap.Encode(UserSettings.Default.TextureExportFormat, UserSettings.Default.SaveHdrTexturesAsHdr, out var ext);
+            ExportName += "." + ext;
+        }
+        else
+        {
+            ImageBuffer = imageData;
+            ExportName += "." + (NoAlpha ? "jpg" : "png");
+        }
+
+        using var stream = new MemoryStream(imageData);
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
@@ -253,7 +292,7 @@ public class TabItem : ViewModel
     public void AddImage(UTexture texture, bool save, bool updateUi)
     {
         var appendLayerNumber = false;
-        var img = new SKBitmap[1];
+        var img = new CTexture[1];
         if (texture is UTexture2DArray textureArray)
         {
             img = textureArray.DecodeTextureArray(UserSettings.Default.CurrentDir.TexturePlatform);
@@ -264,7 +303,7 @@ public class TabItem : ViewModel
             img[0] = texture.Decode(UserSettings.Default.CurrentDir.TexturePlatform);
             if (texture is UTextureCube)
             {
-                img[0] = img[0]?.ToPanorama();
+                img[0] = img[0].ToPanorama();
             }
         }
 
@@ -277,6 +316,29 @@ public class TabItem : ViewModel
         {
             AddImage($"{name}{(appendLayerNumber ? $"_{i}" : "")}", rnn, img[i], save, updateUi);
         }
+    }
+
+    public void AddImage(string name, bool rnn, CTexture[] img, bool save, bool updateUi, bool appendLayerNumber = false)
+    {
+        for (var i = 0; i < img.Length; i++)
+        {
+            AddImage($"{name}{(appendLayerNumber ? $"_{i}" : "")}", rnn, img[i], save, updateUi);
+        }
+    }
+
+    public void AddImage(string name, bool rnn, CTexture img, bool save, bool updateUi)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var t = new TabImage(name, rnn, img);
+            if (save) SaveImage(t, updateUi);
+            if (!updateUi) return;
+
+            _images.Add(t);
+            SelectedImage ??= t;
+            RaisePropertyChanged("Page");
+            RaisePropertyChanged("HasMultipleImages");
+        });
     }
 
     public void AddImage(string name, bool rnn, SKBitmap img, bool save, bool updateUi)
@@ -312,23 +374,14 @@ public class TabItem : ViewModel
     public void SaveImage() => SaveImage(SelectedImage, true);
     private void SaveImage(TabImage image, bool updateUi)
     {
-        if (image == null) return;
+        if (image == null)
+            return;
 
-        var ext = UserSettings.Default.TextureExportFormat switch
-        {
-            ETextureFormat.Png => ".png",
-            ETextureFormat.Jpeg => ".jpg",
-            ETextureFormat.Tga => ".tga",
-            _ => ".png"
-        };
-
-        var fileName = image.ExportName + ext;
-        var path = Path.Combine(UserSettings.Default.TextureDirectory,
-            UserSettings.Default.KeepDirectoryStructure ? Entry.Directory : "", fileName!).Replace('\\', '/');
+        var path = Path.Combine(UserSettings.Default.TextureDirectory, UserSettings.Default.KeepDirectoryStructure ? Entry.Directory : "", image.ExportName).Replace('\\', '/');
 
         Directory.CreateDirectory(path.SubstringBeforeLast('/'));
 
-        SaveImage(image, path, fileName, updateUi);
+        SaveImage(image, path, image.ExportName, updateUi);
     }
 
     private void SaveImage(TabImage image, string path, string fileName, bool updateUi)

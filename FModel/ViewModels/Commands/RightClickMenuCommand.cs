@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Linq;
 using System.Threading;
 using CUE4Parse.FileProvider.Objects;
@@ -42,6 +42,14 @@ public class RightClickMenuCommand : ViewModelCommand<ApplicationViewModel>
                         Thread.Yield();
                         cancellationToken.ThrowIfCancellationRequested();
                         contextViewModel.CUE4Parse.ShowMetadata(entry);
+                    }
+                    break;
+                case "Assets_Decompile":
+                    foreach (var entry in entries)
+                    {
+                        Thread.Yield();
+                        cancellationToken.ThrowIfCancellationRequested();
+                        contextViewModel.CUE4Parse.Decompile(entry);
                     }
                     break;
                 case "Assets_Export_Data":

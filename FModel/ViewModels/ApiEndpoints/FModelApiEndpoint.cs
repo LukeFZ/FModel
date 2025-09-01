@@ -106,7 +106,11 @@ public class FModelApiEndpoint : AbstractApiProvider
 
     public void CheckForUpdates(bool launch = false)
     {
-        if (DateTime.Now < UserSettings.Default.NextUpdateCheck) return;
+        if (DateTime.Now < UserSettings.Default.NextUpdateCheck)
+        {
+            Log.Warning("Updates have been silenced until {DateTime}", UserSettings.Default.NextUpdateCheck);
+            return;
+        }
 
         if (launch)
         {
@@ -142,7 +146,8 @@ public class FModelApiEndpoint : AbstractApiProvider
         {
             UserSettings.Default.LastUpdateCheck = DateTime.Now;
 
-            if (((CustomMandatory)args.Mandatory).CommitHash == Constants.APP_COMMIT_ID)
+            var targetHash = ((CustomMandatory) args.Mandatory).CommitHash;
+            if (targetHash == Constants.APP_COMMIT_ID)
             {
                 if (UserSettings.Default.ShowChangelog)
                     ShowChangelog(args);
@@ -154,6 +159,7 @@ public class FModelApiEndpoint : AbstractApiProvider
             UserSettings.Default.ShowChangelog = currentVersion != args.InstalledVersion;
 
             const string message = "A new update is available!";
+            Log.Warning("{message} Version {CurrentVersion} ({Hash})", message, currentVersion, targetHash);
             Helper.OpenWindow<AdonisWindow>(message, () => new UpdateView { Title = message, ResizeMode = ResizeMode.NoResize }.ShowDialog());
         }
         else

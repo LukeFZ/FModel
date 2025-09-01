@@ -19,6 +19,18 @@ public class Reward
         _rewardQuantity = "x0";
     }
 
+    public Reward(int quantity, FSoftObjectPath softObjectPath) : this()
+    {
+        _rewardQuantity = $"{quantity / 1000f}k";
+
+        if (softObjectPath.TryLoad(out UObject d))
+        {
+            _theReward = new BaseIcon(d, EIconStyle.Default);
+            _theReward.ParseForReward(false);
+            _theReward.Border[0] = SKColors.White;
+        }
+    }
+
     public Reward(int quantity, FName primaryAssetName) : this(quantity, primaryAssetName.Text)
     {
     }
@@ -33,7 +45,7 @@ public class Reward
 
             if (parts[0].Equals("HomebaseBannerIcon", StringComparison.CurrentCultureIgnoreCase))
             {
-                if (!Utils.TryLoadObject($"FortniteGame/Content/Items/BannerIcons/{parts[1]}.{parts[1]}", out UObject p))
+                if (!Utils.TryLoadObject($"FortniteGame/Plugins/GameFeatures/BRCosmetics/Content/Items/BannerIcons/{parts[1]}.{parts[1]}", out UObject p))
                     return;
 
                 _theReward = new BaseIcon(p, EIconStyle.Default);
@@ -51,7 +63,6 @@ public class Reward
         _theReward = new BaseIcon(uObject, EIconStyle.Default);
         _theReward.ParseForReward(false);
         _theReward.Border[0] = SKColors.White;
-        _rewardQuantity = _theReward.DisplayName;
     }
 
     private readonly SKPaint _rewardPaint = new()
@@ -61,28 +72,30 @@ public class Reward
 
     public void DrawQuest(SKCanvas c, SKRect rect)
     {
-        _rewardPaint.TextSize = 50;
+        _rewardPaint.TextSize = 25;
         if (HasReward())
         {
-            c.DrawBitmap((_theReward.Preview ?? _theReward.DefaultPreview).Resize((int) rect.Height), new SKPoint(rect.Left, rect.Top), _rewardPaint);
-
-            _rewardPaint.Color = _theReward.Border[0];
-            _rewardPaint.Typeface = _rewardQuantity.StartsWith("x") ? Utils.Typefaces.BundleNumber : Utils.Typefaces.Bundle;
-            _rewardPaint.ImageFilter = SKImageFilter.CreateDropShadow(0, 0, 5, 5, _theReward.Background[0].WithAlpha(150));
-            while (_rewardPaint.MeasureText(_rewardQuantity) > rect.Width)
+            var origin = new SKPoint(rect.Left, rect.Top);
+            if (!string.IsNullOrEmpty(_rewardQuantity))
             {
-                _rewardPaint.TextSize -= 1;
+                origin.Y -= _rewardPaint.TextSize / 2;
             }
 
-            var shaper = new CustomSKShaper(_rewardPaint.Typeface);
-            c.DrawShapedText(shaper, _rewardQuantity, rect.Left + rect.Height + 25, rect.MidY + 20, _rewardPaint);
-        }
-        else
-        {
+            c.DrawBitmap((_theReward.Preview ?? _theReward.DefaultPreview).Resize((int) rect.Height), origin, _rewardPaint);
+            if (string.IsNullOrEmpty(_rewardQuantity)) return;
+
+            _rewardPaint.TextAlign = SKTextAlign.Center;
+            _rewardPaint.FakeBoldText = true;
             _rewardPaint.Color = SKColors.White;
-            _rewardPaint.Typeface = Utils.Typefaces.BundleNumber;
-            c.DrawText("No Reward", new SKPoint(rect.Left, rect.MidY + 20), _rewardPaint);
+            var shaper = new CustomSKShaper(Utils.Typefaces.BundleNumber);
+            c.DrawShapedText(shaper, _rewardQuantity, rect.Left + rect.Width * 0.5f, rect.Bottom, _rewardPaint);
         }
+        // else
+        // {
+        //     _rewardPaint.Color = SKColors.White;
+        //     _rewardPaint.Typeface = Utils.Typefaces.BundleNumber;
+        //     c.DrawText("No Reward", new SKPoint(rect.Left, rect.MidY + 20), _rewardPaint);
+        // }
     }
 
     public void DrawSeasonWin(SKCanvas c, int size)

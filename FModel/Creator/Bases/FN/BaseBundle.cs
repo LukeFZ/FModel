@@ -13,12 +13,11 @@ namespace FModel.Creator.Bases.FN;
 public class BaseBundle : UCreator
 {
     private IList<BaseQuest> _quests;
-    private const int _headerHeight = 100;
 
     public BaseBundle(UObject uObject, EIconStyle style) : base(uObject, style)
     {
         Width = 1024;
-        Height = _headerHeight;
+        Height = 0;
         Margin = 0;
     }
 
@@ -56,84 +55,31 @@ public class BaseBundle : UCreator
                 if (!completionReward.TryGetValue(out int completionCount, "CompletionCount") ||
                     !completionReward.TryGetValue(out FStructFallback[] rewards, "Rewards")) continue;
 
+                var quest = new BaseQuest(completionCount, Style);
                 foreach (var reward in rewards)
                 {
-                    if (!reward.TryGetValue(out int quantity, "Quantity") ||
-                        !reward.TryGetValue(out string templateId, "TemplateId") ||
-                        !reward.TryGetValue(out FSoftObjectPath itemDefinition, "ItemDefinition")) continue;
-
-                    if (!itemDefinition.AssetPathName.IsNone &&
-                        !itemDefinition.AssetPathName.Text.Contains("/Items/Tokens/") &&
-                        !itemDefinition.AssetPathName.Text.Contains("/Items/Quests"))
-                    {
-                        _quests.Add(new BaseQuest(completionCount, itemDefinition, Style));
-                    }
-                    else if (!string.IsNullOrWhiteSpace(templateId))
-                    {
-                        _quests.Add(new BaseQuest(completionCount, quantity, templateId, Style));
-                    }
+                    if (!reward.TryGetValue(out FSoftObjectPath itemDefinition, "ItemDefinition")) continue;
+                    quest.AddCompletionReward(itemDefinition);
                 }
+                _quests.Add(quest);
             }
         }
 
-        Height += 256 * _quests.Count;
+        Height += 200 * _quests.Count;
     }
 
     public override SKBitmap[] Draw()
     {
-        var ret = new SKBitmap(Width, Height, SKColorType.Rgba8888, SKAlphaType.Opaque);
+        var ret = new SKBitmap(Width, Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var c = new SKCanvas(ret);
 
-        DrawHeader(c);
-        DrawDisplayName(c);
-        DrawQuests(c);
-
-        return new[] { ret };
-    }
-
-    private readonly SKPaint _headerPaint = new()
-    {
-        IsAntialias = true, FilterQuality = SKFilterQuality.High,
-        Typeface = Utils.Typefaces.Bundle, TextSize = 50,
-        TextAlign = SKTextAlign.Center, Color = SKColor.Parse("#262630")
-    };
-
-    private void DrawHeader(SKCanvas c)
-    {
-        c.DrawRect(new SKRect(0, 0, Width, _headerHeight), _headerPaint);
-
-        var background = _quests.Count > 0 ? _quests[0].Background : Background;
-        _headerPaint.Shader = SKShader.CreateRadialGradient(new SKPoint(Width / 2, _headerHeight / 2), Width / 5 * 4,
-            new[] { background[0].WithAlpha(50), background[1].WithAlpha(50) }, SKShaderTileMode.Clamp);
-        c.DrawRect(new SKRect(0, 0, Width, _headerHeight), _headerPaint);
-
-        _headerPaint.Shader = SKShader.CreateLinearGradient(new SKPoint(Width / 2, _headerHeight), new SKPoint(Width / 2, 75),
-            new[] { SKColors.Black.WithAlpha(25), background[1].WithAlpha(0) }, SKShaderTileMode.Clamp);
-        c.DrawRect(new SKRect(0, 75, Width, _headerHeight), _headerPaint);
-    }
-
-    private new void DrawDisplayName(SKCanvas c)
-    {
-        if (string.IsNullOrEmpty(DisplayName)) return;
-
-        _headerPaint.Shader = null;
-        _headerPaint.Color = SKColors.White;
-        while (_headerPaint.MeasureText(DisplayName) > Width)
-        {
-            _headerPaint.TextSize -= 1;
-        }
-
-        var shaper = new CustomSKShaper(_headerPaint.Typeface);
-        c.DrawShapedText(shaper, DisplayName, Width / 2f, _headerHeight / 2f + _headerPaint.TextSize / 2 - 10, _headerPaint);
-    }
-
-    private void DrawQuests(SKCanvas c)
-    {
-        var y = _headerHeight;
+        var y = 0;
         foreach (var quest in _quests)
         {
             quest.DrawQuest(c, y);
             y += quest.Height;
         }
+
+        return [ret];
     }
 }

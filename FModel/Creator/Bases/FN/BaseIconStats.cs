@@ -84,44 +84,80 @@ public class BaseIconStats : BaseIcon
             weaponStatHandle.TryGetValue(out UDataTable dataTable, "DataTable") &&
             dataTable.TryGetDataTableRow(weaponRowName.Text, StringComparison.OrdinalIgnoreCase, out var weaponRowValue))
         {
-            if (weaponRowValue.TryGetValue(out int bpc, "BulletsPerCartridge"))
+            weaponRowValue.TryGetValue(out float dmgPb, "DmgPB"); //Damage at point blank
+            weaponRowValue.TryGetValue(out float mdpc, "MaxDamagePerCartridge"); //Max damage a weapon can do in a single hit, usually used for shotguns
+            weaponRowValue.TryGetValue(out float dmgCritical, "DamageZone_Critical"); //Headshot multiplier
+            weaponRowValue.TryGetValue(out int clipSize, "ClipSize"); //Item magazine size
+            weaponRowValue.TryGetValue(out float firingRate, "FiringRate"); //Item firing rate, value is shots per second
+            weaponRowValue.TryGetValue(out float swingTime, "SwingTime"); //Item swing rate, value is swing per second
+            weaponRowValue.TryGetValue(out float armTime, "ArmTime"); //Time it takes for traps to be able to be set off
+            weaponRowValue.TryGetValue(out float reloadTime, "ReloadTime"); //Time it takes for a weapon to reload
+            weaponRowValue.TryGetValue(out int bpc, "BulletsPerCartridge"); //Amount of pellets shot by a weapon at once, usually for shotguns
+            weaponRowValue.TryGetValue(out float heatMax, "OverheatingMaxValue"); //Maximum heat overheating weapons can hold before they need to cool off
+            weaponRowValue.TryGetValue(out float heatPerShot, "OverheatHeatingValue"); //Heat generated per shot on overheat weapons
+            weaponRowValue.TryGetValue(out float overheatCooldown, "OverheatedCooldownDelay"); //Cooldown after a weapon reaches its maximum heat capacity
+            weaponRowValue.TryGetValue(out int cartridgePerFire, "CartridgePerFire"); //Amount of bullets shot after pressing the fire button once
+            weaponRowValue.TryGetValue(out float burstFiringRate, "BurstFiringRate"); //Item firing rate during a burst, value is shots per second
             {
                 var multiplier = bpc != 0f ? bpc : 1;
-                if (weaponRowValue.TryGetValue(out float dmgPb, "DmgPB") && dmgPb != 0f)
+                if (dmgPb != 0f)
                 {
-                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "35D04D1B45737BEA25B69686D9E085B9", "Damage"), dmgPb * multiplier, 200));
+                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "35D04D1B45737BEA25B69686D9E085B9", "Damage"), dmgPb * multiplier, 160));
                 }
 
-                if (weaponRowValue.TryGetValue(out float mdpc, "MaxDamagePerCartridge") && mdpc >= 0f)
+                if (mdpc > 0f && dmgPb * dmgCritical * multiplier > mdpc)
                 {
-                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "0DEF2455463B008C4499FEA03D149EDF", "Headshot Damage"), mdpc, 200));
+                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "0DEF2455463B008C4499FEA03D149EDF", "Headshot Damage"), mdpc, 160));
                 }
-                else if (weaponRowValue.TryGetValue(out float dmgCritical, "DamageZone_Critical"))
+
+                else if (dmgCritical != 0f && dmgCritical != 1f && dmgPb != 0f)
                 {
-                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "0DEF2455463B008C4499FEA03D149EDF", "Headshot Damage"), dmgPb * dmgCritical * multiplier, 200));
+                    _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "0DEF2455463B008C4499FEA03D149EDF", "Headshot Damage"), dmgPb * dmgCritical * multiplier, 160));
                 }
             }
-
-            if (weaponRowValue.TryGetValue(out int clipSize, "ClipSize") && clipSize != 0)
+            if (clipSize > 999f || clipSize == 0f)
             {
-                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "068239DD4327B36124498C9C5F61C038", "Magazine Size"), clipSize, 50));
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "068239DD4327B36124498C9C5F61C038", "Magazine Size"), Utils.GetLocalizedResource("", "0FAE8E5445029F2AA209ADB0FE49B23C", "Infinite"), -1));
             }
 
-            if (weaponRowValue.TryGetValue(out float firingRate, "FiringRate") && firingRate != 0f)
+            else if (clipSize != 0f)
             {
-                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "27B80BA44805ABD5A2D2BAB2902B250C", "Fire Rate"), firingRate, 15));
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "068239DD4327B36124498C9C5F61C038", "Magazine Size"), clipSize, 40));
             }
 
-            if (weaponRowValue.TryGetValue(out float armTime, "ArmTime") && armTime != 0f)
+            var burstEquation = cartridgePerFire != 0f && burstFiringRate != 0f ? (cartridgePerFire / (((cartridgePerFire - 1f) / burstFiringRate) + (1f / firingRate))) : 0f;
+            if (burstEquation != 0f)
             {
-                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "3BFEB8BD41A677CC5F45B9A90D6EAD6F", "Arming Delay"), armTime, 125));
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "27B80BA44805ABD5A2D2BAB2902B250C", "Fire Rate"), burstEquation, 11));
+            }
+            else if (firingRate != 0f)
+            {
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "27B80BA44805ABD5A2D2BAB2902B250C", "Fire Rate"), firingRate, 11));
+            }
+            else if (swingTime != 0f)
+            {
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "27B80BA44805ABD5A2D2BAB2902B250C", "Fire Rate"), swingTime, 11));
             }
 
-            if (weaponRowValue.TryGetValue(out float reloadTime, "ReloadTime") && reloadTime != 0f)
+            if (armTime != 0f)
             {
-                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "6EA26D1A4252034FBD869A90F9A6E49A", "Reload Time"), reloadTime, 15));
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "3BFEB8BD41A677CC5F45B9A90D6EAD6F", "Arming Delay"), armTime, 5));
             }
 
+            if (reloadTime != 0f && clipSize < 999f && clipSize != 0f)
+            {
+                _statistics.Add(new IconStat(Utils.GetLocalizedResource("", "6EA26D1A4252034FBD869A90F9A6E49A", "Reload Time"), reloadTime, 10));
+            }
+
+            if (overheatCooldown != 0f && clipSize > 999f || overheatCooldown != 0f && clipSize == 0f)
+            {
+                _statistics.Add(new IconStat("Overheat Cooldown", overheatCooldown, 5));
+            }
+
+            if (heatMax != 0f && heatPerShot != 0f && clipSize > 999f || heatMax != 0f && heatPerShot != 0f && clipSize == 0f)
+            {
+                _statistics.Add(new IconStat("Shots to Overheat", Math.Ceiling(heatMax / heatPerShot), 80));
+            }
             if ((Object.ExportType.Equals("FortContextTrapItemDefinition", StringComparison.OrdinalIgnoreCase) ||
                  Object.ExportType.Equals("FortTrapItemDefinition", StringComparison.OrdinalIgnoreCase)) &&
                 weaponRowValue.TryGetValue(out UDataTable durabilityTable, "Durability") &&
@@ -215,6 +251,7 @@ public class BaseIconStats : BaseIcon
         _informationPaint.TextSize = 50;
         _informationPaint.Color = SKColors.White;
         _informationPaint.Typeface = Utils.Typefaces.Bundle;
+        _informationPaint.FakeBoldText = true;
         while (_informationPaint.MeasureText(DisplayName) > Width - _headerHeight * 2)
         {
             _informationPaint.TextSize -= 1;
@@ -284,6 +321,10 @@ public class IconStat
         _statPaint.Color = SKColors.White;
         c.DrawText(_value.ToString(), new SKPoint(width - 50, y + 10), _statPaint);
 
+        if (_maxValue == -1) //fill bar if max value is set to -1, for things that don't return a number here but should still be represented as the maximum value
+        {
+            c.DrawRect(new SKRect(height * 2, y, Math.Min(width - height, sliderRight), y + 5), _statPaint);
+        }
         if (_maxValue < 1 || !float.TryParse(_value.ToString(), out var floatValue)) return;
         if (floatValue < 0)
             floatValue = 0;

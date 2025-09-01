@@ -12,7 +12,7 @@ out vec3 fColor;
 
 void main()
 {
-    gl_PointSize = 7.5f;
+    gl_PointSize = 7.5;
     gl_Position = uProjection * uView * uInstanceMatrix * vec4(vPos, 1.0);
     fPos = vec3(uInstanceMatrix * vec4(vPos, 1.0));
     fColor = vColor;

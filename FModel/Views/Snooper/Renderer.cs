@@ -8,9 +8,11 @@ using CUE4Parse_Conversion.Animations;
 using CUE4Parse_Conversion.Meshes;
 using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Animation;
+using CUE4Parse.UE4.Assets.Exports.Component.SplineMesh;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.GeometryCollection;
 using CUE4Parse.UE4.Assets.Exports.Material;
+using CUE4Parse.UE4.Assets.Exports.Nanite;
 using CUE4Parse.UE4.Assets.Exports.SkeletalMesh;
 using CUE4Parse.UE4.Assets.Exports.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.Texture;
@@ -85,7 +87,7 @@ public class Renderer : IDisposable
         switch (dummy)
         {
             case UStaticMesh when export.Value is UStaticMesh st:
-                LoadStaticMesh(st);
+                LoadStaticMesh(st, UserSettings.Default.NaniteMeshExportFormat);
                 break;
             case USkeletalMesh when export.Value is USkeletalMesh sk:
                 LoadSkeletalMesh(sk);
@@ -119,7 +121,28 @@ public class Renderer : IDisposable
         Application.Current.Dispatcher.Invoke(() => model.Materials[section.MaterialIndex].Setup(Options, model.UvCount));
     }
 
-    public void Animate(Lazy<UObject> anim) => Animate(anim.Value, Options.SelectedModel);
+    public void Animate(UObject anim)
+    {
+        if (!Services.ApplicationService.ApplicationView.CUE4Parse.ModelIsWaitingAnimation)
+        {
+            if (anim is UAnimSequenceBase animBase)
+            {
+                /*if (Options.TryGetModel(out var selected) &&
+                    selected is SkeletalModel { IsVisible: true } skeletalModel &&
+                    skeletalModel.Skeleton.Guid == animBase.SkeletonGuid)
+                {
+                    // do nothing, selected model has the correct skeleton for this animation
+                }
+                else */if (animBase.Skeleton.TryLoad(out USkeleton skeleton))
+                {
+                    LoadSkeleton(skeleton);
+                }
+            }
+            else return; // should never end here
+        }
+
+        Animate(anim, Options.SelectedModel);
+    }
     private void Animate(UObject anim, FGuid guid)
     {
         if (anim is not UAnimSequenceBase animBase || !animBase.Skeleton.TryLoad(out USkeleton skeleton) ||
@@ -285,7 +308,7 @@ public class Renderer : IDisposable
             animation.TimeCalculation(Options.Tracker.ElapsedTime);
             foreach (var guid in animation.AttachedModels)
             {
-                if (Options.Models[guid] is not SkeletalModel skeletalModel) continue;
+                if (!Options.TryGetModel(guid, out var m) || m is not SkeletalModel skeletalModel) continue;
                 skeletalModel.Skeleton.UpdateAnimationMatrices(animation, AnimateWithRotationOnly);
             }
         }
@@ -321,7 +344,7 @@ public class Renderer : IDisposable
             wnd.WindowShouldClose(true, true);
     }
 
-    private void LoadStaticMesh(UStaticMesh original)
+    private void LoadStaticMesh(UStaticMesh original, ENaniteMeshFormat naniteFormat = ENaniteMeshFormat.OnlyNormalLODs)
     {
         var guid = original.LightingGuid;
         if (Options.TryGetModel(guid, out var model))
@@ -331,7 +354,7 @@ public class Renderer : IDisposable
             return;
         }
 
-        if (!original.TryConvert(out var mesh))
+        if (!original.TryConvert(out var mesh, naniteFormat))
             return;
 
         Options.Models[guid] = new StaticModel(original, mesh);
@@ -422,8 +445,7 @@ public class Renderer : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (persistentLevel.Actors[i].Load() is not { } actor ||
-                actor.ExportType is "LODActor" or "SplineMeshActor")
+            if (persistentLevel.Actors[i].Load() is not { } actor || actor.ExportType is "LODActor")
                 continue;
 
             Services.ApplicationService.ApplicationView.Status.UpdateStatusLabel($"{original.Name} ... {i}/{length}");
@@ -514,17 +536,17 @@ public class Renderer : IDisposable
         {
             foreach (var component in instanceComponents)
             {
-                if (!component.TryLoad(out UInstancedStaticMeshComponent staticMeshComp) ||
+                if (!component.TryLoad(out UStaticMeshComponent staticMeshComp) ||
                     !staticMeshComp.GetStaticMesh().TryLoad(out UStaticMesh m) || m.Materials.Length < 1)
                     continue;
 
-                if (staticMeshComp.PerInstanceSMData is { Length: > 0 })
+                var relation = CalculateTransform(staticMeshComp, transform);
+                if (staticMeshComp is UInstancedStaticMeshComponent { PerInstanceSMData.Length: > 0 } instancedStaticMeshComp)
                 {
 
-                    var relation = CalculateTransform(staticMeshComp, transform);
-                    foreach (var perInstanceData in staticMeshComp.PerInstanceSMData)
+                    foreach (var perInstanceData in instancedStaticMeshComp.PerInstanceSMData)
                     {
-                        ProcessMesh(actor, staticMeshComp, m, new Transform
+                        ProcessMesh(actor, instancedStaticMeshComp, m, new Transform
                         {
                             Relation = relation.Matrix,
                             Position = perInstanceData.TransformData.Translation * Constants.SCALE_DOWN_RATIO,
@@ -533,7 +555,7 @@ public class Renderer : IDisposable
                         });
                     }
                 }
-                else ProcessMesh(actor, staticMeshComp, m, CalculateTransform(staticMeshComp, transform));
+                else ProcessMesh(actor, staticMeshComp, m, relation);
             }
         }
         else if (actor.TryGetValue(out FPackageIndex componentTemplate, "ComponentTemplate") &&
@@ -553,7 +575,7 @@ public class Renderer : IDisposable
                 ProcessMesh(actor, compTemplate, m, CalculateTransform(compTemplate, transform), forceShow);
             }
         }
-        else if (actor.TryGetValue(out FPackageIndex staticMeshComponent, "StaticMeshComponent", "ComponentTemplate", "StaticMesh", "Mesh", "LightMesh") &&
+        else if (actor.TryGetValue(out FPackageIndex staticMeshComponent, "StaticMeshComponent", "ComponentTemplate", "StaticMesh", "Mesh", "LightMesh", "SplineMesh") &&
                  staticMeshComponent.TryLoad(out UStaticMeshComponent staticMeshComp) &&
                  staticMeshComp.GetStaticMesh().TryLoad(out UStaticMesh m) && m.Materials.Length > 0)
         {
@@ -568,14 +590,17 @@ public class Renderer : IDisposable
     }
     private void ProcessMesh(IPropertyHolder actor, UObject staticMeshComp, UStaticMesh m, Transform transform, bool forceShow)
     {
+        var bSpline = staticMeshComp is USplineMeshComponent;
         var guid = m.LightingGuid;
         if (Options.TryGetModel(guid, out var model))
         {
             model.AddInstance(transform);
+            if (bSpline && model is SplineModel splineModel)
+                splineModel.AddComponent((USplineMeshComponent)staticMeshComp);
         }
         else if (m.TryConvert(out var mesh))
         {
-            model = new StaticModel(m, mesh, transform);
+            model = bSpline ? new SplineModel(m, mesh, (USplineMeshComponent)staticMeshComp, transform) : new StaticModel(m, mesh, transform);
             model.IsTwoSided = actor.GetOrDefault("bMirrored", staticMeshComp.GetOrDefault("bDisallowMeshPaintPerInstance", model.IsTwoSided));
 
             if (actor.TryGetAllValues(out FPackageIndex[] textureData, "TextureData"))
@@ -650,6 +675,11 @@ public class Renderer : IDisposable
 
     private Transform CalculateTransform(IPropertyHolder staticMeshComp, Transform relation)
     {
+        if (staticMeshComp.TryGetValue(out FPackageIndex ap, "AttachParent") && ap.TryLoad(out UObject component))
+        {
+            relation = CalculateTransform(component, relation);
+        }
+
         return new Transform
         {
             Relation = relation.Matrix,

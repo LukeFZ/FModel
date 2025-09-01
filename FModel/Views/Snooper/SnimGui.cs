@@ -11,6 +11,7 @@ using FModel.Settings;
 using FModel.Views.Snooper.Animations;
 using FModel.Views.Snooper.Models;
 using FModel.Views.Snooper.Shading;
+using ImGuizmoNET;
 using OpenTK.Graphics.OpenGL4;
 
 namespace FModel.Views.Snooper;
@@ -67,7 +68,9 @@ public class SnimGui
 
     private Vector2 _outlinerSize;
     private bool _tiOpen;
+    private bool _transformOpen;
     private bool _viewportFocus;
+    private OPERATION _guizmoOperation;
 
     private readonly Vector4 _accentColor = new (0.125f, 0.42f, 0.831f, 1.0f);
     private readonly Vector4 _alertColor = new (0.831f, 0.573f, 0.125f, 1.0f);
@@ -82,14 +85,14 @@ public class SnimGui
         _renderer = GL.GetString(StringName.Renderer);
         _version = "OpenGL " + GL.GetString(StringName.Version);
         _tableWidth = 17 * Controller.DpiScale;
+        _guizmoOperation = OPERATION.TRANSLATE;
 
         Theme();
     }
 
     public void Render(Snooper s)
     {
-        Controller.SemiBold();
-        DrawDockSpace(s.ClientSize);
+        ImGui.DockSpaceOverViewport(_dockspaceId, ImGui.GetMainViewport(), ImGuiDockNodeFlags.PassthruCentralNode);
 
         SectionWindow("Material Inspector", s.Renderer, DrawMaterialInspector, false);
         AnimationWindow("Timeline", s.Renderer, (icons, tracker, animations) =>
@@ -249,26 +252,11 @@ public class SnimGui
         }
     }
 
-    private void DrawDockSpace(OpenTK.Mathematics.Vector2i size)
-    {
-        const ImGuiWindowFlags flags =
-            ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoDocking |
-            ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize |
-            ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoMove |
-            ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoNavFocus;
-
-        ImGui.SetNextWindowPos(new Vector2(0, 0));
-        ImGui.SetNextWindowSize(new Vector2(size.X, size.Y));
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
-        ImGui.Begin("Oui oui", flags);
-        ImGui.PopStyleVar();
-        ImGui.DockSpace(_dockspaceId);
-    }
-
     private void DrawNavbar()
     {
         if (!ImGui.BeginMainMenuBar()) return;
 
+        const int cursorX = 360;
         Modal("Commands", ImGui.MenuItem("Commands"), () =>
         {
             ImGui.TextWrapped(
@@ -323,11 +311,9 @@ public class SnimGui
 ");
             ImGui.Separator();
 
-            var size = new Vector2(120, 0);
-            ImGui.InvisibleButton("", size * 3);
-            ImGui.SameLine();
+            ImGui.SetCursorPosX(cursorX);
             ImGui.SetItemDefaultFocus();
-            if (ImGui.Button("OK", size))
+            if (ImGui.Button("OK", new Vector2(120, 0)))
             {
                 ImGui.CloseCurrentPopup();
             }
@@ -347,11 +333,9 @@ public class SnimGui
             ImGui.TextWrapped(s.ToString());
             ImGui.Separator();
 
-            var size = new Vector2(120, 0);
-            ImGui.InvisibleButton("", size * 4);
-            ImGui.SameLine();
+            ImGui.SetCursorPosX(cursorX);
             ImGui.SetItemDefaultFocus();
-            if (ImGui.Button("OK", size))
+            if (ImGui.Button("OK", new Vector2(120, 0)))
             {
                 ImGui.CloseCurrentPopup();
             }
@@ -366,11 +350,9 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
 ");
             ImGui.Separator();
 
-            var size = new Vector2(120, 0);
-            ImGui.InvisibleButton("", size * 4);
-            ImGui.SameLine();
+            ImGui.SetCursorPosX(cursorX);
             ImGui.SetItemDefaultFocus();
-            if (ImGui.Button("OK", size))
+            if (ImGui.Button("OK", new Vector2(120, 0)))
             {
                 ImGui.CloseCurrentPopup();
             }
@@ -604,13 +586,45 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
                     ImGui.EndTabItem();
                 }
 
-                if (ImGui.BeginTabItem("Transform"))
+                _transformOpen = ImGui.BeginTabItem("Transform");
+                if (_transformOpen)
                 {
                     ImGui.PushID(0); ImGui.BeginDisabled(model.TransformsCount < 2);
                     ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
                     ImGui.SliderInt("", ref model.SelectedInstance, 0, model.TransformsCount - 1, "Instance %i", ImGuiSliderFlags.AlwaysClamp);
                     ImGui.EndDisabled(); ImGui.PopID();
 
+                    if (ImGui.BeginTable("guizmo_controls", 2, ImGuiTableFlags.SizingStretchProp))
+                    {
+                        var t = model.Transforms[model.SelectedInstance];
+                        var c = _guizmoOperation switch
+                        {
+                            OPERATION.TRANSLATE => 0,
+                            OPERATION.ROTATE => 1,
+                            OPERATION.SCALE => 2,
+                            _ => 3
+                        };
+
+                        Layout("Operation          ");
+                        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.6f);
+                        ImGui.PushID(1);ImGui.Combo("", ref c, "Translate\0Rotate\0Scale\0");
+                        ImGui.PopID();ImGui.SameLine();if (ImGui.Button("Reset All")) t.Reset();
+                        Layout("Position");ImGui.Text(t.Position.ToString());
+                        Layout("Rotation");ImGui.Text(t.Rotation.ToString());
+                        Layout("Scale");ImGui.Text(t.Scale.ToString());
+
+                        _guizmoOperation = c switch
+                        {
+                            0 => OPERATION.TRANSLATE,
+                            1 => OPERATION.ROTATE,
+                            2 => OPERATION.SCALE,
+                            _ => OPERATION.UNIVERSAL
+                        };
+
+                        ImGui.EndTable();
+                    }
+
+                    ImGui.SeparatorText("Manual Inputs");
                     model.Transforms[model.SelectedInstance].ImGuiTransform(s.Renderer.CameraOp.Speed / 100f);
 
                     ImGui.EndTabItem();
@@ -648,6 +662,8 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
                     else CenteredTextColored(_errorColor, "Selected Mesh Has No Morph Targets");
                     ImGui.EndTabItem();
                 }
+
+                ImGui.EndTabBar();
             }
         });
         ImGui.PopStyleVar();
@@ -711,13 +727,14 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
     private void DrawTextureInspector(Snooper s)
     {
         if (!_tiOpen) return;
-        if (ImGui.Begin("Texture Inspector", ref _tiOpen, ImGuiWindowFlags.NoScrollbar) &&
-            s.Renderer.Options.TryGetModel(out var model) &&
-            s.Renderer.Options.TryGetSection(model, out var section))
+        if (ImGui.Begin("Texture Inspector", ref _tiOpen, ImGuiWindowFlags.NoScrollbar))
         {
-            (model.Materials[section.MaterialIndex].GetSelectedTexture() ?? s.Renderer.Options.Icons["noimage"]).ImGuiTextureInspector();
+            if (s.Renderer.Options.TryGetModel(out var model) && s.Renderer.Options.TryGetSection(model, out var section))
+            {
+                (model.Materials[section.MaterialIndex].GetSelectedTexture() ?? s.Renderer.Options.Icons["noimage"]).ImGuiTextureInspector();
+            }
         }
-        ImGui.End(); // if window is collapsed
+        ImGui.End();
     }
 
     private void DrawSkeletonTree(Snooper s)
@@ -725,19 +742,21 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
         if (!s.Renderer.IsSkeletonTreeOpen) return;
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
-        if (ImGui.Begin("Skeleton Tree", ref s.Renderer.IsSkeletonTreeOpen, ImGuiWindowFlags.NoScrollbar) &&
-            s.Renderer.Options.TryGetModel(out var model) && model is SkeletalModel skeletalModel)
+        if (ImGui.Begin("Skeleton Tree", ref s.Renderer.IsSkeletonTreeOpen, ImGuiWindowFlags.NoScrollbar))
         {
-            skeletalModel.Skeleton.ImGuiBoneBreadcrumb();
-            if (ImGui.BeginTable("skeleton_tree", 2, ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.RowBg, ImGui.GetContentRegionAvail(), ImGui.GetWindowWidth()))
+            if (s.Renderer.Options.TryGetModel(out var model) && model is SkeletalModel skeletalModel)
             {
-                ImGui.TableSetupColumn("Bone", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableSetupColumn("", ImGuiTableColumnFlags.NoHeaderWidth | ImGuiTableColumnFlags.WidthFixed, _tableWidth);
-                skeletalModel.Skeleton.ImGuiBoneHierarchy();
-                ImGui.EndTable();
+                skeletalModel.Skeleton.ImGuiBoneBreadcrumb();
+                if (ImGui.BeginTable("skeleton_tree", 2, ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.RowBg, ImGui.GetContentRegionAvail(), ImGui.GetWindowWidth()))
+                {
+                    ImGui.TableSetupColumn("Bone", ImGuiTableColumnFlags.WidthStretch);
+                    ImGui.TableSetupColumn("", ImGuiTableColumnFlags.NoHeaderWidth | ImGuiTableColumnFlags.WidthFixed, _tableWidth);
+                    skeletalModel.Skeleton.ImGuiBoneHierarchy();
+                    ImGui.EndTable();
+                }
             }
         }
-        ImGui.End(); // if window is collapsed
+        ImGui.End();
         ImGui.PopStyleVar();
     }
 
@@ -751,41 +770,54 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
             largest.Y -= ImGui.GetScrollY();
 
             var size = new Vector2(largest.X, largest.Y);
+            var pos = ImGui.GetWindowPos();
+            var fHeight = ImGui.GetFrameHeight();
+
             s.Renderer.CameraOp.AspectRatio = size.X / size.Y;
-            ImGui.Image(s.Framebuffer.GetPointer(), size, new Vector2(0, 1), new Vector2(1, 0), Vector4.One);
+            ImGui.Image(s.Framebuffer.GetPointer(), size, new Vector2(0, 1), new Vector2(1, 0));
 
-            if (ImGui.IsItemHovered())
+            if (_transformOpen)
             {
-                // if left button down while mouse is hover viewport
-                if (ImGui.IsMouseDown(ImGuiMouseButton.Left) && !_viewportFocus)
-                {
-                    _viewportFocus = true;
-                    s.CursorState = CursorState.Grabbed;
-                }
-                if (ImGui.IsMouseClicked(ImGuiMouseButton.Right))
-                {
-                    var guid = s.Renderer.Picking.ReadPixel(ImGui.GetMousePos(), ImGui.GetCursorScreenPos(), size);
-                    s.Renderer.Options.SelectModel(guid);
-                    ImGui.SetWindowFocus("Outliner");
-                    ImGui.SetWindowFocus("Details");
-                }
+                ImGuizmo.SetDrawlist(ImGui.GetWindowDrawList());
+                ImGuizmo.SetRect(pos.X, pos.Y + fHeight, size.X, size.Y);
+                DrawGuizmo(s);
             }
 
-            if (ImGui.IsMouseDragging(ImGuiMouseButton.Left) && _viewportFocus)
+            if (!ImGuizmo.IsUsing())
             {
-                s.Renderer.CameraOp.Modify(ImGui.GetIO().MouseDelta);
-            }
+                if (ImGui.IsItemHovered())
+                {
+                    // if left button down while mouse is hover viewport
+                    if (ImGui.IsMouseDown(ImGuiMouseButton.Left) && !_viewportFocus)
+                    {
+                        _viewportFocus = true;
+                        s.CursorState = CursorState.Grabbed;
+                    }
+                    if (ImGui.IsMouseClicked(ImGuiMouseButton.Right))
+                    {
+                        var guid = s.Renderer.Picking.ReadPixel(ImGui.GetMousePos(), ImGui.GetCursorScreenPos(), size);
+                        s.Renderer.Options.SelectModel(guid);
+                        ImGui.SetWindowFocus("Outliner");
+                        ImGui.SetWindowFocus("Details");
+                    }
+                }
 
-            // if left button up and mouse was in viewport
-            if (ImGui.IsMouseReleased(ImGuiMouseButton.Left) && _viewportFocus)
-            {
-                _viewportFocus = false;
-                s.CursorState = CursorState.Normal;
+                if (_viewportFocus && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+                {
+                    s.Renderer.CameraOp.Modify(ImGui.GetIO().MouseDelta);
+                }
+
+                // if left button up and mouse was in viewport
+                if (_viewportFocus && ImGui.IsMouseReleased(ImGuiMouseButton.Left))
+                {
+                    _viewportFocus = false;
+                    s.CursorState = CursorState.Normal;
+                }
             }
 
             const float margin = 7.5f;
             var buttonWidth = 14.0f * ImGui.GetWindowDpiScale();
-            var basePos = new Vector2( size.X - buttonWidth - margin * 2, ImGui.GetFrameHeight() + margin);
+            var basePos = new Vector2( size.X - buttonWidth - margin * 2, fHeight + margin);
             ImGui.SetCursorPos(basePos);
             ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.2f));
@@ -802,8 +834,7 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
             ImGui.ImageButton("lights_btn", s.Renderer.Options.Icons[s.Renderer.ShowLights ? "light" : "light_off"].GetPointer(), new Vector2(buttonWidth));
             TooltipCheckbox("Lights", ref s.Renderer.ShowLights);
 
-            ImGui.PopStyleColor();
-
+            ImGui.PopStyleColor(2);
 
             float framerate = ImGui.GetIO().Framerate;
             ImGui.SetCursorPos(size with { X = margin });
@@ -815,6 +846,26 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
 
         }, false);
         ImGui.PopStyleVar();
+    }
+
+    private void DrawGuizmo(Snooper s)
+    {
+        var enableGuizmo = s.Renderer.Options.TryGetModel(out var selected) && selected.IsVisible;
+        if (enableGuizmo)
+        {
+            var view = s.Renderer.CameraOp.GetViewMatrix();
+            var proj = s.Renderer.CameraOp.GetProjectionMatrix();
+            var transform = selected.Transforms[selected.SelectedInstance];
+            var matrix = transform.Matrix;
+
+            if (ImGuizmo.Manipulate(ref view.M11, ref proj.M11, _guizmoOperation, MODE.LOCAL, ref matrix.M11) &&
+                Matrix4x4.Invert(transform.Relation, out var invRelation))
+            {
+                // ^ long story short: there was issues with other transformation methods
+                // that's one way of modifying root elements without breaking the world matrix
+                transform.ModifyLocal(matrix * invRelation);
+            }
+        }
     }
 
     public static void Popup(Action content)
@@ -846,12 +897,13 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
     {
         if (ImGui.Begin(name, ImGuiWindowFlags.NoScrollbar))
         {
-            Controller.PopFont();
+            Controller.Normal();
             if (styled) PushStyleCompact();
             content();
             if (styled) PopStyleCompact();
-            ImGui.End();
+            ImGui.PopFont();
         }
+        ImGui.End();
     }
 
     private void MeshWindow(string name, Renderer renderer, Action<Dictionary<string, Texture>, UModel> content, bool styled = true)
@@ -904,7 +956,7 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
                 ImGui.GetCursorPosY() + (region.Y - size.Y) / 2));
         Controller.Bold();
         ImGui.TextColored(color, text);
-        Controller.PopFont();
+        ImGui.PopFont();
     }
 
     public static void Layout(string name, bool tooltip = false)
@@ -943,12 +995,6 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
     private void Theme()
     {
         var style = ImGui.GetStyle();
-        var io = ImGui.GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags.ViewportsEnable;
-        io.ConfigWindowsMoveFromTitleBarOnly = true;
-        // io.ConfigDockingWithShift = true; doesn't work anymore??
-
         style.WindowPadding = new Vector2(4f);
         style.FramePadding = new Vector2(3f);
         style.CellPadding = new Vector2(3f, 2f);
@@ -1029,7 +1075,7 @@ Snooper aims to give an accurate preview of models, materials, skeletal animatio
         style.Colors[(int) ImGuiCol.TableRowBgAlt]          = new Vector4(1.00f, 1.00f, 1.00f, 0.06f);
         style.Colors[(int) ImGuiCol.TextSelectedBg]         = new Vector4(0.26f, 0.59f, 0.98f, 0.35f);
         style.Colors[(int) ImGuiCol.DragDropTarget]         = new Vector4(1.00f, 1.00f, 0.00f, 0.90f);
-        style.Colors[(int) ImGuiCol.NavHighlight]           = new Vector4(0.26f, 0.59f, 0.98f, 1.00f);
+        style.Colors[(int) ImGuiCol.NavCursor]              = new Vector4(0.26f, 0.59f, 0.98f, 1.00f);
         style.Colors[(int) ImGuiCol.NavWindowingHighlight]  = new Vector4(1.00f, 1.00f, 1.00f, 0.70f);
         style.Colors[(int) ImGuiCol.NavWindowingDimBg]      = new Vector4(0.80f, 0.80f, 0.80f, 0.20f);
         style.Colors[(int) ImGuiCol.ModalWindowDimBg]       = new Vector4(0.80f, 0.80f, 0.80f, 0.35f);

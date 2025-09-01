@@ -47,13 +47,20 @@ public class Shader : IDisposable
     private int LoadShader(ShaderType type, string file)
     {
         var executingAssembly = Assembly.GetExecutingAssembly();
-        using var stream = executingAssembly.GetManifestResourceStream($"{executingAssembly.GetName().Name}.Resources.{file}");
+        var executingAssemblyName = executingAssembly.GetName().Name;
+        using var stream = executingAssembly.GetManifestResourceStream($"{executingAssemblyName}.Resources.{file}");
         using var reader = new StreamReader(stream);
         var handle = GL.CreateShader(type);
 
         var content = reader.ReadToEnd();
         if (file.Equals("default.frag") && GL.GetInteger(GetPName.MaxTextureCoords) == 0)
             content = content.Replace("#define MAX_UV_COUNT 8", "#define MAX_UV_COUNT 1");
+        if (type == ShaderType.VertexShader && Array.IndexOf(["default.vert", "outline.vert", "picking.vert"], file) > -1)
+        {
+            using var splineStream = executingAssembly.GetManifestResourceStream($"{executingAssemblyName}.Resources.spline.vert");
+            using var splineReader = new StreamReader(splineStream);
+            content = splineReader.ReadToEnd() + Environment.NewLine + content.Replace("#version 460 core", "");
+        }
 
         GL.ShaderSource(handle, content);
         GL.CompileShader(handle);

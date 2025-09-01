@@ -192,7 +192,7 @@ public class Options
         if (Textures.TryGetValue(guid, out texture)) return texture != null;
         if (o.Format == EPixelFormat.PF_BC6H) return false; // BC6H is not supported by Decode thus randomly crashes the app
 
-        SKBitmap bitmap = o switch
+        var bitmap = o switch
         {
             UTexture2D texture2D => texture2D.Decode(UserSettings.Default.PreviewMaxTextureSize, UserSettings.Default.CurrentDir.TexturePlatform),
             UTexture2DArray texture2DArray => texture2DArray.DecodeTextureArray(UserSettings.Default.CurrentDir.TexturePlatform)?.FirstOrDefault(),
@@ -201,10 +201,9 @@ public class Options
 
         if (bitmap is not null)
         {
-            texture = new Texture(bitmap, o);
+            texture = new Texture(bitmap.ToSkBitmap(), o);
             if (fix) TextureHelper.FixChannels(_game, texture);
             Textures[guid] = texture;
-            bitmap.Dispose();
         }
 
         return texture != null;
